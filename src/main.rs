@@ -5,7 +5,7 @@ use std::io::stdin;
 
 fn main() {
     let _argv: Vec<String> = env::args().collect();
-	let file_read: Vec<String>;
+	let mut file_read: Vec<String>;
 	let _data_parsed: Vec<Caller>;
 
     // if argv.len() == 1 {
@@ -17,14 +17,7 @@ fn main() {
     // } else {
     //     read_file();
     // }
-
-	for s in file_read.clone() {
-		println!("{s}");
-	}
-
-	println!("-----");
-
-	_data_parsed = parsing(file_read);
+	file_read = filtering(file_read);
 }
 
 fn read_stdin() -> std::io::Result<Vec<String>> {
@@ -34,6 +27,9 @@ fn read_stdin() -> std::io::Result<Vec<String>> {
 
     loop {
 		open_result = stdin().read_line(&mut buff);
+		if buff.len() > 0 {
+			buff.truncate(buff.len() - 1);
+		}
 		match open_result {
 			Ok(size) => match size {
 				0 => { whole_file.push(buff.clone()); break; },
@@ -41,6 +37,7 @@ fn read_stdin() -> std::io::Result<Vec<String>> {
 			},
 			Err(e) => return Err(e),
 		}
+		buff.clear();
     }
     Ok(whole_file)
 }
@@ -49,13 +46,13 @@ fn _read_file() {
     println!("Called read_file");
 }
 
-fn parsing(whole_file: Vec<String>) -> Vec<Caller> {
-	let mut ret: Vec<Caller> = vec![];
+fn filtering<'a>(mut whole_file: Vec<String>) -> Vec<String> {
 	let mut section_text: bool = false;
 	let mut _current_function: Caller;
+	let mut filtered: Vec<String> = vec![];
 	let panic_str: &str = "Parsing error: Multiple .text disassembly sections";
 
-	for s in whole_file {
+	for s in whole_file.clone() {
 		match (section_text,
 			s == "Disassembly of section .text:",
 			s.starts_with("Disassembly of section")) {
@@ -65,11 +62,12 @@ fn parsing(whole_file: Vec<String>) -> Vec<Caller> {
 				(true, false, false) =>	{
 					if !s.is_empty() {
 						println!("{s}");
+						filtered.push(s);
 					}
 				}
 				(true, true, _)		=>	panic!("{panic_str}"),
 		}
 	}
-
-	return ret;
+	whole_file = filtered;
+	return whole_file;
 }
