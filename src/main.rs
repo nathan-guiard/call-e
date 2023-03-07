@@ -18,6 +18,7 @@ fn main() {
     //     read_file();
     // }
 	file_read = filtering(file_read);
+	parsing(file_read);
 }
 
 fn read_stdin() -> std::io::Result<Vec<String>> {
@@ -70,4 +71,39 @@ fn filtering<'a>(mut whole_file: Vec<String>) -> Vec<String> {
 	}
 	whole_file = filtered;
 	return whole_file;
+}
+
+fn parsing(data: Vec<String>) {
+	let mut functions: Vec<Caller> = vec![];
+	let mut current_name: String = String::from("");
+	let mut current_caller: Caller = Caller::new();
+
+	for s in data {
+		if s.clone().into_bytes()[0] != b' ' {
+			let it = s.split_ascii_whitespace();
+			let name = it.last().unwrap();
+
+			if name.len() > 3 {
+				if !current_caller.is_empty() {
+					functions.push(current_caller.clone());
+					current_caller.clear();
+				}
+				current_name = String::from(&name[1..name.len() - 2]);
+				current_caller.name = current_name;
+			}
+			else {
+				panic!("Parsing error: Name of function too short.");
+			}
+		} else {
+			let mut tab: Vec<&str> = s.split('\t').collect();
+			let op = tab[2];
+
+			for test in tab {
+				print!("|{}|", test);
+			}
+			println!("");
+
+			// println!("{}: {}", s, op);		
+		}
+	}
 }
