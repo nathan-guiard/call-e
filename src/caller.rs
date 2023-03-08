@@ -1,5 +1,3 @@
-use std::string;
-
 #[derive(Clone)]
 pub struct Caller {
 	pub name: String,

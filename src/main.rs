@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, collections::HashMap};
 mod caller;
 use caller::Caller;
 use std::io::stdin;
@@ -18,7 +18,8 @@ fn main() {
     //     read_file();
     // }
 	file_read = filtering(file_read);
-	parsing(file_read);
+	let map = parsing(file_read);
+	map = assign_callees(map);
 }
 
 fn read_stdin() -> std::io::Result<Vec<String>> {
@@ -73,9 +74,9 @@ fn filtering<'a>(mut whole_file: Vec<String>) -> Vec<String> {
 	return whole_file;
 }
 
-fn parsing(data: Vec<String>) {
-	let mut functions: Vec<Caller> = vec![];
-	let mut current_name: String = String::from("");
+fn parsing(data: Vec<String>) -> HashMap<String, Caller> {
+	let mut functions: HashMap<String, Caller> = HashMap::new();
+	let mut current_name: String;
 	let mut current_caller: Caller = Caller::new();
 
 	for s in data {
@@ -85,7 +86,7 @@ fn parsing(data: Vec<String>) {
 
 			if name.len() > 3 {
 				if !current_caller.is_empty() {
-					functions.push(current_caller.clone());
+					functions.insert(current_caller.name.clone(), current_caller.clone());
 					current_caller.clear();
 				}
 				current_name = String::from(&name[1..name.len() - 2]);
@@ -95,15 +96,46 @@ fn parsing(data: Vec<String>) {
 				panic!("Parsing error: Name of function too short.");
 			}
 		} else {
-			let mut tab: Vec<&str> = s.split('\t').collect();
-			let op = tab[2];
+			let tab: Vec<&str> = s.split('\t').collect();
+			let op;
 
-			for test in tab {
-				print!("|{}|", test);
+			if tab.len() < 3 {
+				op = "none"
+			} else {
+				op = tab[2];
 			}
-			println!("");
-
-			// println!("{}: {}", s, op);		
+			if op.starts_with("call") {
+				current_caller.callees_name.push(parse_call_function(op));
+			}	
 		}
 	}
+	if !current_caller.is_empty() {
+		functions.insert(current_caller.name.clone(), current_caller.clone());
+	}
+
+	let it = functions.clone();
+	for (key, value) in it {
+		let truc = value.callees_name.clone();
+		for a in truc {
+			println!("{}: {}", key, a);
+		}
+	}
+	return functions;
+}
+
+fn parse_call_function(s: &str) -> String {
+	let splitted = s.split_ascii_whitespace();
+	let name = splitted.last().unwrap();
+
+	return String::from(name[1..name.len() - 1].to_string());
+}
+
+fn assign_callees(mut map: HashMap<String, Caller>) -> HashMap<String, Caller> {
+	for (name, fnc) in map {
+		for callee in fnc.callees_name {
+			fnc.callees_struct.push(map.get(callee.clone()));
+		}
+	}
+
+	return map;
 }
