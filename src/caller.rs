@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Caller {
 	pub name: String,
 	pub callees_struct: Vec<Callee>,

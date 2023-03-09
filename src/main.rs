@@ -2,24 +2,27 @@ use std::{env, collections::HashMap};
 mod caller;
 use caller::Caller;
 use std::io::stdin;
+use std::io::Read;
+
 
 fn main() {
     let _argv: Vec<String> = env::args().collect();
-	let mut file_read: Vec<String>;
 	let _data_parsed: Vec<Caller>;
 
     // if argv.len() == 1 {
-        match read_stdin() {
-			Ok(ret) => file_read = ret,
+		let mut file_read = String::new();
+        match stdin().read_to_string(&mut file_read) {
+			Ok(_) => (),
 			Err(e) => panic!("Error : {:?}", e)
 		}
+
 	// }
     // } else {
     //     read_file();
     // }
-	file_read = filtering(file_read);
-	let map = parsing(file_read);
-	map = assign_callees(map);
+	// file_read = filtering(file_read);
+	let map = parsing(&file_read);
+	// map = assign_callees(map);
 }
 
 fn read_stdin() -> std::io::Result<Vec<String>> {
@@ -48,7 +51,7 @@ fn _read_file() {
     println!("Called read_file");
 }
 
-fn filtering<'a>(mut whole_file: Vec<String>) -> Vec<String> {
+fn filtering(mut whole_file: Vec<String>) -> Vec<String> {
 	let mut section_text: bool = false;
 	let mut _current_function: Caller;
 	let mut filtered: Vec<String> = vec![];
@@ -74,52 +77,67 @@ fn filtering<'a>(mut whole_file: Vec<String>) -> Vec<String> {
 	return whole_file;
 }
 
-fn parsing(data: Vec<String>) -> HashMap<String, Caller> {
+fn parsing(data: &str) -> HashMap<String, Caller> {
 	let mut functions: HashMap<String, Caller> = HashMap::new();
-	let mut current_name: String;
 	let mut current_caller: Caller = Caller::new();
 
-	for s in data {
-		if s.clone().into_bytes()[0] != b' ' {
+	let mut in_text_section =  false;
+
+	for mut s in data.lines() {
+		s = s.trim();
+
+		if s.is_empty() {
+			continue;
+		}
+		
+		if !in_text_section {
+			if s.starts_with("Disassembly of section .text:") {
+				in_text_section = true;
+			}
+			
+			continue;
+		}
+
+		if s.starts_with("Disassembly of section") {
+			break;
+		}
+
+		if s.as_bytes().first() != Some(&b' ') {
 			let it = s.split_ascii_whitespace();
 			let name = it.last().unwrap();
 
 			if name.len() > 3 {
 				if !current_caller.is_empty() {
-					functions.insert(current_caller.name.clone(), current_caller.clone());
-					current_caller.clear();
+					functions.insert(current_caller.name.clone(), current_caller);
+					current_caller = Caller::new();
 				}
-				current_name = String::from(&name[1..name.len() - 2]);
-				current_caller.name = current_name;
+				current_caller.name = String::from(&name[1..name.len() - 2]);
 			}
 			else {
 				panic!("Parsing error: Name of function too short.");
 			}
 		} else {
-			let tab: Vec<&str> = s.split('\t').collect();
-			let op;
+			let mut iter = s.split('\t');
 
-			if tab.len() < 3 {
-				op = "none"
-			} else {
-				op = tab[2];
+			if let Some(op) = iter.nth(2) {
+				if op.starts_with("call") {
+					current_caller.callees_name.push(parse_call_function(op));
+				}
 			}
-			if op.starts_with("call") {
-				current_caller.callees_name.push(parse_call_function(op));
-			}	
 		}
 	}
+
 	if !current_caller.is_empty() {
-		functions.insert(current_caller.name.clone(), current_caller.clone());
+		functions.insert(current_caller.name.clone(), current_caller);
 	}
 
-	let it = functions.clone();
-	for (key, value) in it {
+	for (key, value) in &functions {
 		let truc = value.callees_name.clone();
 		for a in truc {
 			println!("{}: {}", key, a);
 		}
 	}
+
 	return functions;
 }
 
@@ -127,15 +145,18 @@ fn parse_call_function(s: &str) -> String {
 	let splitted = s.split_ascii_whitespace();
 	let name = splitted.last().unwrap();
 
-	return String::from(name[1..name.len() - 1].to_string());
-}
-
-fn assign_callees(mut map: HashMap<String, Caller>) -> HashMap<String, Caller> {
-	for (name, fnc) in map {
-		for callee in fnc.callees_name {
-			fnc.callees_struct.push(map.get(callee.clone()));
-		}
+	if name == "call" {
+		panic!("parsing error no fnc name");
 	}
-
-	return map;
+	return name[1..name.len() - 1].into();
 }
+
+// fn assign_callees(mut map: HashMap<String, Caller>) -> HashMap<String, Caller> {
+// 	for (name, fnc) in map {
+// 		for callee in fnc.callees_name {
+// 			fnc.callees_struct.push(map.get(callee.clone()));
+// 		}
+// 	}
+
+// 	return map;
+// }
